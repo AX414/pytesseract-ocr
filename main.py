@@ -6,10 +6,10 @@ import os
 # Defina o caminho da instalação do Tesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# Diretório e nome da imagem com a lista de contatos
-imagem_path = os.path.join('imgs', '1.jpg')  # Substitua '1.jpg' pelo nome correto da imagem
+# Diretório das imagens
+diretorio_imagens = 'imgs'
 
-# Lista para armazenar os contatos extraídos
+# Lista para armazenar todos os contatos extraídos
 contatos_extraidos = []
 
 # Função para limpar o número de telefone e formatar corretamente
@@ -33,56 +33,80 @@ def limpar_nome(nome):
     nome = re.sub(r'[^\w\s]', '', nome)  # Remove caracteres não alfanuméricos e não espaços
     return nome
 
-# Carrega a imagem original sem pré-processamento
-imagem = Image.open(imagem_path)
+# Função para processar uma imagem individual e extrair contatos
+def processar_imagem(imagem_path):
+    # Lista para armazenar os contatos extraídos da imagem atual
+    contatos_imagem = []
 
-# Ajuste para corrigir a rotação (detectando a orientação da imagem)
-imagem = ImageOps.exif_transpose(imagem)  # Tenta corrigir a rotação de acordo com os metadados EXIF
+    # Carrega a imagem original
+    imagem = Image.open(imagem_path)
 
-# Aumenta o contraste da imagem para melhorar a precisão do OCR
-enhancer = ImageEnhance.Contrast(imagem)
-imagem = enhancer.enhance(2.0)  # Aumenta o contraste em 2 vezes, ajuste se necessário
+    # Ajuste para corrigir a rotação (detectando a orientação da imagem)
+    imagem = ImageOps.exif_transpose(imagem)  # Tenta corrigir a rotação de acordo com os metadados EXIF
 
-# Converte para escala de cinza para melhorar a clareza
-imagem = imagem.convert("L")
+    # Aumenta o contraste da imagem para melhorar a precisão do OCR
+    enhancer = ImageEnhance.Contrast(imagem)
+    imagem = enhancer.enhance(2.0)  # Aumenta o contraste em 2 vezes, ajuste se necessário
 
-# Extrai o texto da imagem
-texto_extraido = pytesseract.image_to_string(imagem)
+    # Converte para escala de cinza para melhorar a clareza
+    imagem = imagem.convert("L")
 
-# Divide o texto extraído em linhas
-linhas = texto_extraido.splitlines()
+    # Extrai o texto da imagem
+    texto_extraido = pytesseract.image_to_string(imagem)
 
-# Expressão regular para detectar números de telefone no formato internacional
-telefone_regex = re.compile(r'\+?\d[\d\s-]*')
+    # Divide o texto extraído em linhas
+    linhas = texto_extraido.splitlines()
 
-# Variáveis temporárias para armazenar nome e telefone enquanto percorremos as linhas
-nome = None
-telefone = None
+    # Expressão regular para detectar números de telefone no formato internacional
+    telefone_regex = re.compile(r'\+?\d[\d\s-]*')
 
-# Loop para processar cada linha individualmente
-for linha in linhas:
-    linha = linha.strip()
+    # Variáveis temporárias para armazenar nome e telefone enquanto percorremos as linhas
+    nome = None
+    telefone = None
 
-    # Ignora linhas vazias e entradas não válidas
-    if not linha or re.search(r'[^\x00-\x7F]+', linha):  # Remover caracteres especiais não alfabéticos
-        continue
+    # Loop para processar cada linha individualmente
+    for linha in linhas:
+        linha = linha.strip()
 
-    # Se a linha parece um número de telefone
-    if telefone_regex.match(linha):
-        # Validação mais estrita do telefone
-        if len(linha.replace(" ", "").replace("-", "")) >= 10:  # Espera-se um número com pelo menos 10 dígitos
-            telefone = limpar_telefone(linha)  # Limpa o telefone removendo caracteres indesejados e formata
+        # Ignora linhas vazias e entradas não válidas
+        if not linha or re.search(r'[^\x00-\x7F]+', linha):  # Remover caracteres especiais não alfabéticos
+            continue
+
+        # Se a linha parece um número de telefone
+        if telefone_regex.match(linha):
+            # Validação mais estrita do telefone
+            if len(linha.replace(" ", "").replace("-", "")) >= 10:  # Espera-se um número com pelo menos 10 dígitos
+                telefone = limpar_telefone(linha)  # Limpa o telefone removendo caracteres indesejados e formata
+            else:
+                telefone = None  # Se o telefone não for válido, ignoramos
         else:
-            telefone = None  # Se o telefone não for válido, ignoramos
-    else:
-        # Se não for um telefone, tratamos como nome
-        nome = limpar_nome(linha)  # Limpa o nome removendo caracteres indesejados
+            # Se não for um telefone, tratamos como nome
+            nome = limpar_nome(linha)  # Limpa o nome removendo caracteres indesejados
 
-    # Se tanto nome quanto telefone foram encontrados, adiciona o contato à lista
-    if nome and telefone:
-        contatos_extraidos.append({'Nome': nome, 'Telefone': telefone})
-        nome = None  # Reseta para o próximo contato
-        telefone = None
+        # Se tanto nome quanto telefone foram encontrados, adiciona o contato à lista
+        if nome and telefone:
+            contatos_imagem.append({'Nome': nome, 'Telefone': telefone})
+            nome = None  # Reseta para o próximo contato
+            telefone = None
+
+    # Retorna os contatos extraídos da imagem atual
+    return contatos_imagem
+
+# Função para processar todas as imagens no diretório
+def processar_todas_imagens():
+    # Obtém todos os arquivos de imagem no diretório
+    arquivos_imagem = [f for f in os.listdir(diretorio_imagens) if f.endswith('.jpg')]
+
+    # Itera sobre os arquivos de imagem e processa cada um
+    for arquivo in arquivos_imagem:
+        imagem_path = os.path.join(diretorio_imagens, arquivo)
+        contatos = processar_imagem(imagem_path)
+        
+        # Adiciona os contatos extraídos à lista geral
+        contatos_extraidos.extend(contatos)
+
+# Processa todas as imagens
+processar_todas_imagens()
 
 # Exibir os contatos extraídos
 if contatos_extraidos:
