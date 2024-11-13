@@ -1,26 +1,21 @@
 import pytesseract
-from PIL import Image, ImageOps, ImageEnhance
 import re
 import os
 import json
-import pandas as pd  # Importação do pandas para exibir a tabela
+import pandas as pd
+from PIL import Image, ImageOps, ImageEnhance
 
-# Defina o caminho da instalação do Tesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-# Diretório das imagens
 diretorio_imagens = 'imgs'
-
-# Lista para armazenar todos os contatos extraídos
 contatos_extraidos = []
 
 def limpar_telefone(telefone):
     telefone = re.sub(r'[^\d+]', '', telefone)
     if telefone.startswith("+55"):
         telefone = telefone[:3] + " " + telefone[3:5] + " " + telefone[5:10] + "-" + telefone[10:]
-    elif telefone.startswith("55"):
+    elif telefone.startswith("55"): # Caso faltar o +
         telefone = "+" + telefone[:2] + " " + telefone[2:4] + " " + telefone[4:9] + "-" + telefone[9:]
-    else:
+    else: # Caso não tenha sequer o número que indique o país
         telefone = telefone[:2] + " " + telefone[2:7] + "-" + telefone[7:]
     return telefone
 
@@ -66,19 +61,18 @@ def processar_todas_imagens():
         contatos = processar_imagem(imagem_path)
         contatos_extraidos.extend(contatos)
 
-# Processa todas as imagens
 processar_todas_imagens()
 
 if contatos_extraidos:
-    # Salva os contatos em um arquivo JSON
+    # Salvando os contatos em um arquivo JSON
     with open('contatos_extraidos.json', 'w', encoding='utf-8') as f:
         json.dump(contatos_extraidos, f, ensure_ascii=False, indent=4)
     print("Contatos extraídos e salvos em 'contatos_extraidos.json'.")
 
-    # Exibe os contatos como uma tabela usando pandas
+    # Exibindo os contatos como uma tabela usando pandas
     df = pd.DataFrame(contatos_extraidos)
     print("\nTabela de Contatos Extraídos:")
-    print(df.to_markdown())  # Exibe como tabela com formatação de markdown
+    print(df.to_markdown())  # Exibindo como tabela com formatação de markdown para ficar bonitinho
 
 else:
     print("Nenhum contato foi extraído.")
